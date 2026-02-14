@@ -419,6 +419,16 @@ export abstract class BrowserContext<EM extends EventMap = EventMap> extends Sdk
     }
   }
 
+  // IFRAME-PIERCE: Set forceActions to skip hit-target validation on clicks
+  setForceActions(forceActions: boolean) {
+    this._options.forceActions = forceActions;
+  }
+
+  // IFRAME-PIERCE: Set pierceIframes to enable iframe-piercing selectors
+  setPierceIframes(pierceIframes: boolean) {
+    this._options.pierceIframes = pierceIframes;
+  }
+
   async _loadDefaultContextAsIs(progress: Progress): Promise<Page | undefined> {
     if (!this.possiblyUninitializedPages().length) {
       const waitForEvent = helper.waitForEvent(progress, this, BrowserContext.Events.Page);
@@ -734,6 +744,11 @@ export function validateBrowserContextOptions(options: types.BrowserContextOptio
     throw new Error(`"deviceScaleFactor" option is not supported with null "viewport"`);
   if (options.noDefaultViewport && !!options.isMobile)
     throw new Error(`"isMobile" option is not supported with null "viewport"`);
+  // IFRAME-PIERCE: Default to true for iframe piercing and force actions
+  if (options.forceActions === undefined)
+    options.forceActions = true;
+  if (options.pierceIframes === undefined)
+    options.pierceIframes = true;
   if (options.acceptDownloads === undefined && browserOptions.name !== 'electron')
     options.acceptDownloads = 'accept';
   // Electron requires explicit acceptDownloads: true since we wait for

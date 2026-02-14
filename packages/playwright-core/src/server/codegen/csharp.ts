@@ -68,8 +68,10 @@ export class CSharpLanguageGenerator implements LanguageGenerator {
       return formatter.format();
     }
 
-    const locators = actionInContext.frame.framePath.map(selector => `.${this._asLocator(selector)}.ContentFrame`);
-    const subject = `${pageAlias}${locators.join('')}`;
+    // IFRAME-PIERCE: Skip frame path - use iframe-piercing locators instead of explicit frame chains
+    // const locators = actionInContext.frame.framePath.map(selector => `.${this._asLocator(selector)}.ContentFrame`);
+    // const subject = `${pageAlias}${locators.join('')}`;
+    const subject = pageAlias;
     const signals = toSignalMap(action);
 
     if (signals.dialog) {

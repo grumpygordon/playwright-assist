@@ -405,7 +405,7 @@ export class InjectedScript {
     };
     return {
       queryAll: (root: SelectorRoot, selector: string): Element[] => {
-        return this._evaluator.query({ scope: root as Document | Element, pierceShadow: shadow }, toCSS(selector));
+        return this._evaluator.query({ scope: root as Document | Element, pierceShadow: shadow, pierceIframes: true }, toCSS(selector));
       }
     };
   }
@@ -413,7 +413,7 @@ export class InjectedScript {
   private _createCSSEngine(): SelectorEngine {
     return {
       queryAll: (root: SelectorRoot, body: any) => {
-        return this._evaluator.query({ scope: root as Document | Element, pierceShadow: true }, body);
+        return this._evaluator.query({ scope: root as Document | Element, pierceShadow: true, pierceIframes: true }, body);
       }
     };
   }
@@ -437,7 +437,7 @@ export class InjectedScript {
 
       if (root.nodeType === Node.ELEMENT_NODE)
         appendElement(root as Element);
-      const elements = this._evaluator._queryCSS({ scope: root as Document | Element, pierceShadow: shadow }, '*');
+      const elements = this._evaluator._queryCSS({ scope: root as Document | Element, pierceShadow: shadow, pierceIframes: true }, '*');
       for (const element of elements)
         appendElement(element);
       return result;
@@ -475,7 +475,7 @@ export class InjectedScript {
     return {
       queryAll: (root: SelectorRoot, selector: string): Element[] => {
         const { matcher } = createTextMatcher(selector, true);
-        const allElements = this._evaluator._queryCSS({ scope: root as Document | Element, pierceShadow: true }, '*');
+        const allElements = this._evaluator._queryCSS({ scope: root as Document | Element, pierceShadow: true, pierceIframes: true }, '*');
         return allElements.filter(element => {
           return getElementLabels(this._evaluator._cacheText, element).some(label => matcher(label));
         });
@@ -497,7 +497,7 @@ export class InjectedScript {
         matcher = s => s === value;
       else
         matcher = s => s.toLowerCase().includes(lowerCaseValue!);
-      const elements = this._evaluator._queryCSS({ scope: root as Document | Element, pierceShadow: true }, `[${name}]`);
+      const elements = this._evaluator._queryCSS({ scope: root as Document | Element, pierceShadow: true, pierceIframes: true }, `[${name}]`);
       return elements.filter(e => matcher(e.getAttribute(name)!));
     };
     return { queryAll };
@@ -954,17 +954,29 @@ export class InjectedScript {
 
   expectHitTarget(hitPoint: { x: number, y: number }, targetElement: Element) {
     const roots: (Document | ShadowRoot)[] = [];
+    // IFRAME-PIERCE: disabled iframe chain tracking - using forceActions instead
+    // const iframeChain: HTMLIFrameElement[] = [];
 
     // Get all component roots leading to the target element.
     // Go from the bottom to the top to make it work with closed shadow roots.
+    // IFRAME-PIERCE: disabled iframe chain tracking
     let parentElement = targetElement;
     while (parentElement) {
       const root = enclosingShadowRootOrDocument(parentElement);
       if (!root)
         break;
       roots.push(root);
-      if (root.nodeType === 9 /* Node.DOCUMENT_NODE */)
+      if (root.nodeType === 9 /* Node.DOCUMENT_NODE */) {
+        // IFRAME-PIERCE: disabled - was tracking iframe chain
+        // const doc = root as Document;
+        // const win = doc.defaultView;
+        // if (win && win.frameElement && win.frameElement.tagName === 'IFRAME') {
+        //   iframeChain.push(win.frameElement as HTMLIFrameElement);
+        //   parentElement = win.frameElement as Element;
+        //   continue;
+        // }
         break;
+      }
       parentElement = (root as ShadowRoot).host;
     }
 
@@ -1013,6 +1025,15 @@ export class InjectedScript {
     }
     if (hitElement === targetElement)
       return 'done';
+
+    // IFRAME-PIERCE: disabled iframe-aware hit target check - using forceActions instead
+    // if (hitParents.length > 0 && iframeChain.length > 0) {
+    //   for (const hitParent of hitParents) {
+    //     if (iframeChain.includes(hitParent as HTMLIFrameElement)) {
+    //       return 'done';
+    //     }
+    //   }
+    // }
 
     const hitTargetDescription = this.previewNode(hitParents[0] || this.document.documentElement);
     // Root is the topmost element in the hitTarget's chain that is not in the

@@ -165,14 +165,25 @@ function queryRole(scope: SelectorRoot, options: RoleEngineOptions, internal: bo
 
   const query = (root: Element | ShadowRoot | Document) => {
     const shadows: ShadowRoot[] = [];
+    const iframeDocs: Document[] = [];
     if ((root as Element).shadowRoot)
       shadows.push((root as Element).shadowRoot!);
     for (const element of root.querySelectorAll('*')) {
       match(element);
       if (element.shadowRoot)
         shadows.push(element.shadowRoot);
+      if (element.tagName === 'IFRAME') {
+        try {
+          const doc = (element as HTMLIFrameElement).contentDocument;
+          if (doc)
+            iframeDocs.push(doc);
+        } catch (e) {
+          // Cross-origin iframe, skip
+        }
+      }
     }
     shadows.forEach(query);
+    iframeDocs.forEach(query);
   };
 
   query(scope);

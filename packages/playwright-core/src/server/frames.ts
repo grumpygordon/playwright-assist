@@ -1164,12 +1164,22 @@ export class Frame extends SdkObject<FrameEventMap> {
     });
   }
 
+  private _mergeForceActions<T extends types.CommonActionOptions>(options: T): T {
+    // IFRAME-PIERCE: Apply context-level forceActions if action doesn't explicitly set force
+    const forceActions = this._page.browserContext._options.forceActions;
+    if (forceActions && options.force === undefined)
+      return { ...options, force: true };
+    return options;
+  }
+
   async click(progress: Progress, selector: string, options: { noWaitAfter?: boolean } & types.MouseClickOptions & types.PointerActionWaitOptions) {
-    return dom.assertDone(await this._retryWithProgressIfNotConnected(progress, selector, options, handle => handle._click(progress, { ...options, waitAfter: !options.noWaitAfter })));
+    const mergedOptions = this._mergeForceActions(options);
+    return dom.assertDone(await this._retryWithProgressIfNotConnected(progress, selector, mergedOptions, handle => handle._click(progress, { ...mergedOptions, waitAfter: !mergedOptions.noWaitAfter })));
   }
 
   async dblclick(progress: Progress, selector: string, options: types.MouseMultiClickOptions & types.PointerActionWaitOptions) {
-    return dom.assertDone(await this._retryWithProgressIfNotConnected(progress, selector, options, handle => handle._dblclick(progress, options)));
+    const mergedOptions = this._mergeForceActions(options);
+    return dom.assertDone(await this._retryWithProgressIfNotConnected(progress, selector, mergedOptions, handle => handle._dblclick(progress, mergedOptions)));
   }
 
   async dragAndDrop(progress: Progress, source: string, target: string, options: types.DragActionOptions & types.PointerActionWaitOptions) {

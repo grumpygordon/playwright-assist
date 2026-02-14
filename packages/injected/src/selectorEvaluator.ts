@@ -28,6 +28,7 @@ import type { ElementText } from './selectorUtils';
 type QueryContext = {
   scope: Element | Document;
   pierceShadow: boolean;
+  pierceIframes: boolean;
   // When context expands to accommodate :scope matching, original scope is saved here.
   originalScope?: Element | Document;
   // Place for more options, e.g. normalizing whitespace.
@@ -355,17 +356,26 @@ export class SelectorEvaluatorImpl implements SelectorEvaluator {
   }
 
   _queryCSS(context: QueryContext, css: string): Element[] {
-    return this._cached<Element[]>(this._cacheQueryCSS, css, [context.scope, context.pierceShadow, context.originalScope], () => {
+    return this._cached<Element[]>(this._cacheQueryCSS, css, [context.scope, context.pierceShadow, context.pierceIframes, context.originalScope], () => {
       let result: Element[] = [];
       function query(root: Element | ShadowRoot | Document) {
         result = result.concat([...root.querySelectorAll(css)]);
-        if (!context.pierceShadow)
-          return;
-        if ((root as Element).shadowRoot)
-          query((root as Element).shadowRoot!);
+        if (context.pierceShadow) {
+          if ((root as Element).shadowRoot)
+            query((root as Element).shadowRoot!);
+        }
         for (const element of root.querySelectorAll('*')) {
-          if (element.shadowRoot)
+          if (context.pierceShadow && element.shadowRoot)
             query(element.shadowRoot);
+          if (context.pierceIframes && element.tagName === 'IFRAME') {
+            try {
+              const doc = (element as HTMLIFrameElement).contentDocument;
+              if (doc)
+                query(doc);
+            } catch (e) {
+              // Cross-origin iframe, skip
+            }
+          }
         }
       }
       query(context.scope);

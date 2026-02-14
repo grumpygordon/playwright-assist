@@ -592,6 +592,8 @@ ContextOptions:
             width: int
             height: int
     strictSelectors: boolean?
+    forceActions: boolean?
+    pierceIframes: boolean?
     serviceWorkers:
       type: enum?
       literals:
