@@ -135,6 +135,7 @@ export function generateAriaTree(rootElement: Element, publicOptions: AriaTreeOp
       if (childAriaNode.ref) {
         snapshot.elements.set(childAriaNode.ref, element);
         snapshot.refs.set(element, childAriaNode.ref);
+        element.setAttribute('data-pw-aria-ref', childAriaNode.ref);
         if (childAriaNode.role === 'iframe')
           snapshot.iframeRefs.push(childAriaNode.ref);
       }

@@ -38,6 +38,7 @@ export type ActionBase = {
   name: ActionName,
   signals: Signal[],
   ariaSnapshot?: string,
+  domContent?: string,
   preconditionSelector?: string,
 };
 

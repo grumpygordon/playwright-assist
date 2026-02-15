@@ -740,6 +740,133 @@ class RecordActionTool implements RecorderTool {
   }
 }
 
+function captureDomForLocator(doc: Document): string {
+  const clone = doc.documentElement.cloneNode(true) as HTMLElement;
+
+  // Remove CSP meta tags that block inline styles
+  clone.querySelectorAll('meta[http-equiv="Content-Security-Policy"]').forEach(el => { el.remove(); });
+  clone.querySelectorAll('meta[http-equiv="content-security-policy"]').forEach(el => { el.remove(); });
+
+  // Inline same-origin stylesheets only (ones we can access)
+  const styleSheets = Array.from(doc.styleSheets);
+  const inlinedStyles: string[] = [];
+  const inlinedHrefs = new Set<string>();
+
+  for (const sheet of styleSheets) {
+    try {
+      if (sheet.cssRules) {
+        const cssText = Array.from(sheet.cssRules).map(rule => rule.cssText).join('\n');
+        if (cssText) {
+          inlinedStyles.push(cssText);
+          if (sheet.href) inlinedHrefs.add(sheet.href);
+        }
+      }
+    } catch {
+      // Cross-origin stylesheet - keep the link tag, will be fetched async later
+    }
+  }
+
+  // Add inlined same-origin styles to head
+  const head = clone.querySelector('head');
+  if (inlinedStyles.length > 0 && head) {
+    const styleEl = doc.createElement('style');
+    styleEl.setAttribute('data-sf-injected', 'same-origin');
+    styleEl.textContent = inlinedStyles.join('\n');
+    head.appendChild(styleEl);
+  }
+
+  // Remove only the stylesheet links we successfully inlined
+  // Keep cross-origin links - they will be fetched and inlined async by the server
+  clone.querySelectorAll('link[rel*="stylesheet"]').forEach(el => {
+    const href = el.getAttribute('href');
+    if (href && inlinedHrefs.has(href)) {
+      el.remove();
+    }
+  });
+
+  // Capture input/textarea values and checkbox/radio states
+  const originalInputs = doc.querySelectorAll('input, textarea');
+  const clonedInputs = clone.querySelectorAll('input, textarea');
+  originalInputs.forEach((orig, i) => {
+    const cloned = clonedInputs[i] as HTMLInputElement | HTMLTextAreaElement;
+    if (!cloned) return;
+    const inputEl = orig as HTMLInputElement | HTMLTextAreaElement;
+    cloned.setAttribute('value', inputEl.value);
+    if (orig.nodeName === 'INPUT') {
+      const type = (orig as HTMLInputElement).type;
+      if (type === 'checkbox' || type === 'radio') {
+        if ((orig as HTMLInputElement).checked)
+          cloned.setAttribute('checked', 'checked');
+        else
+          cloned.removeAttribute('checked');
+      }
+    }
+  });
+
+  // Capture select values
+  const originalSelects = doc.querySelectorAll('select');
+  const clonedSelects = clone.querySelectorAll('select');
+  originalSelects.forEach((orig, i) => {
+    const cloned = clonedSelects[i] as HTMLSelectElement;
+    if (!cloned) return;
+    const selectEl = orig as HTMLSelectElement;
+    for (let j = 0; j < selectEl.options.length && j < cloned.options.length; j++) {
+      if (selectEl.options[j].selected)
+        cloned.options[j].setAttribute('selected', 'selected');
+      else
+        cloned.options[j].removeAttribute('selected');
+    }
+  });
+
+  // Replace images with gray placeholder SVGs preserving dimensions
+  const originalImages = doc.querySelectorAll('img');
+  const clonedImages = clone.querySelectorAll('img');
+  originalImages.forEach((orig, i) => {
+    const img = clonedImages[i] as HTMLImageElement;
+    if (!img) return;
+    const width = orig.offsetWidth || orig.naturalWidth || 100;
+    const height = orig.offsetHeight || orig.naturalHeight || 100;
+    img.setAttribute('data-original-src', img.getAttribute('src') || '');
+    img.setAttribute('width', String(width));
+    img.setAttribute('height', String(height));
+    // Use base64 SVG and set via .src property (setAttribute doesn't work on cloned img)
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect fill="#ddd" width="100%" height="100%"/></svg>`;
+    img.src = `data:image/svg+xml;base64,${btoa(svg)}`;
+  });
+
+  // Handle iframes - inline same-origin content via srcdoc, placeholder for cross-origin
+  const originalIframes = doc.querySelectorAll('iframe');
+  const clonedIframes = clone.querySelectorAll('iframe');
+  originalIframes.forEach((orig, i) => {
+    const iframe = clonedIframes[i];
+    if (!iframe) return;
+    try {
+      const iframeDoc = orig.contentDocument;
+      if (iframeDoc && iframeDoc.body) {
+        // Same-origin iframe - capture and inline via srcdoc
+        const iframeContent = captureDomForLocator(iframeDoc);
+        iframe.setAttribute('srcdoc', iframeContent);
+        iframe.removeAttribute('src');
+      }
+    } catch {
+      // Cross-origin iframe - create placeholder content via srcdoc
+      const width = orig.offsetWidth || 300;
+      const height = orig.offsetHeight || 150;
+      iframe.setAttribute('data-original-src', iframe.getAttribute('src') || '');
+      iframe.setAttribute('srcdoc', `<!DOCTYPE html><html><body style="margin:0;background:#eee;display:flex;align-items:center;justify-content:center;height:100%;font-family:sans-serif;color:#666;">Cross-origin iframe</body></html>`);
+      iframe.removeAttribute('src');
+      iframe.setAttribute('width', String(width));
+      iframe.setAttribute('height', String(height));
+    }
+  });
+
+  // Remove scripts and noscript
+  clone.querySelectorAll('script').forEach(el => { el.remove(); });
+  clone.querySelectorAll('noscript').forEach(el => { el.remove(); });
+
+  return '<!DOCTYPE html>\n' + clone.outerHTML;
+}
+
 class JsonRecordActionTool implements RecorderTool {
   private _recorder: Recorder;
 
@@ -769,7 +896,7 @@ class JsonRecordActionTool implements RecorderTool {
       return;
 
     const checkbox = asCheckbox(element);
-    const { ariaSnapshot, selector, ref } = this._ariaSnapshot(element);
+    const { ariaSnapshot, selector, ref, domContent } = this._ariaSnapshot(element);
     if (checkbox && event.detail === 1) {
       // Interestingly, inputElement.checked is reversed inside this event handler.
       this._recorder.recordAction({
@@ -778,6 +905,7 @@ class JsonRecordActionTool implements RecorderTool {
         ref,
         signals: [],
         ariaSnapshot,
+        domContent,
       });
       return;
     }
@@ -787,6 +915,7 @@ class JsonRecordActionTool implements RecorderTool {
       selector,
       ref,
       ariaSnapshot,
+      domContent,
       position: positionForEvent(event),
       signals: [],
       button: buttonForEvent(event),
@@ -797,12 +926,13 @@ class JsonRecordActionTool implements RecorderTool {
 
   onContextMenu(event: MouseEvent): void {
     const element = this._recorder.deepEventTarget(event);
-    const { ariaSnapshot, selector, ref } = this._ariaSnapshot(element);
+    const { ariaSnapshot, selector, ref, domContent } = this._ariaSnapshot(element);
     this._recorder.recordAction({
       name: 'click',
       selector,
       ref,
       ariaSnapshot,
+      domContent,
       position: positionForEvent(event),
       signals: [],
       button: 'right',
@@ -814,13 +944,14 @@ class JsonRecordActionTool implements RecorderTool {
   onInput(event: Event) {
     const element = this._recorder.deepEventTarget(event);
 
-    const { ariaSnapshot, selector, ref } = this._ariaSnapshot(element);
+    const { ariaSnapshot, selector, ref, domContent } = this._ariaSnapshot(element);
     if (isRangeInput(element)) {
       this._recorder.recordAction({
         name: 'fill',
         selector,
         ref,
         ariaSnapshot,
+        domContent,
         signals: [],
         text: element.value,
       });
@@ -838,6 +969,7 @@ class JsonRecordActionTool implements RecorderTool {
         ref,
         selector,
         ariaSnapshot,
+        domContent,
         signals: [],
         text: element.isContentEditable ? element.innerText : (element as HTMLInputElement).value,
       });
@@ -851,6 +983,7 @@ class JsonRecordActionTool implements RecorderTool {
         selector,
         ref,
         ariaSnapshot,
+        domContent,
         options: [...selectElement.selectedOptions].map(option => option.value),
         signals: []
       });
@@ -863,7 +996,7 @@ class JsonRecordActionTool implements RecorderTool {
       return;
 
     const element = this._recorder.deepEventTarget(event);
-    const { ariaSnapshot, selector, ref } = this._ariaSnapshot(element);
+    const { ariaSnapshot, selector, ref, domContent } = this._ariaSnapshot(element);
 
     // Similarly to click, trigger checkbox on key event, not input.
     if (event.key === ' ') {
@@ -874,6 +1007,7 @@ class JsonRecordActionTool implements RecorderTool {
           selector,
           ref,
           ariaSnapshot,
+          domContent,
           signals: [],
         });
         return;
@@ -885,6 +1019,7 @@ class JsonRecordActionTool implements RecorderTool {
       selector,
       ref,
       ariaSnapshot,
+      domContent,
       signals: [],
       key: event.key,
       modifiers: modifiersForEvent(event),
@@ -941,12 +1076,13 @@ class JsonRecordActionTool implements RecorderTool {
     return false;
   }
 
-  private _ariaSnapshot(element: HTMLElement): { ariaSnapshot: string, selector: string, ref?: string };
-  private _ariaSnapshot(element: HTMLElement | undefined): { ariaSnapshot: string, selector?: string, ref?: string } {
+  private _ariaSnapshot(element: HTMLElement): { ariaSnapshot: string, selector: string, ref?: string, domContent?: string };
+  private _ariaSnapshot(element: HTMLElement | undefined): { ariaSnapshot: string, selector?: string, ref?: string, domContent?: string } {
     const { ariaSnapshot, refs } = this._recorder.injectedScript.ariaSnapshotForRecorder();
     const ref = element ? refs.get(element) : undefined;
     const elementInfo = element ? this._recorder.injectedScript.generateSelector(element, { testIdAttributeName: this._recorder.state.testIdAttributeName }) : undefined;
-    return { ariaSnapshot, selector: elementInfo?.selector, ref };
+    const domContent = this._recorder.captureDom ? captureDomForLocator(this._recorder.document) : undefined;
+    return { ariaSnapshot, selector: elementInfo?.selector, ref, domContent };
   }
 }
 
@@ -1394,6 +1530,7 @@ export class Recorder {
   readonly overlay: Overlay | undefined;
   private _stylesheet: CSSStyleSheet;
   private _recorderMode: 'default' | 'api';
+  private _captureDom: boolean;
   state: UIState = {
     mode: 'none',
     testIdAttributeName: 'data-testid',
@@ -1403,7 +1540,7 @@ export class Recorder {
   readonly document: Document;
   private _delegate: RecorderDelegate = {};
 
-  constructor(injectedScript: InjectedScript, options?: { recorderMode?: 'default' | 'api' }) {
+  constructor(injectedScript: InjectedScript, options?: { recorderMode?: 'default' | 'api', captureDom?: boolean }) {
     // Clean up any existing recorder instance before creating new one
     const existingRecorder = injectedScript.window.__pwRecorderInstance;
     if (existingRecorder) {
@@ -1413,6 +1550,7 @@ export class Recorder {
     this.document = injectedScript.document;
     this.injectedScript = injectedScript;
     this._recorderMode = options?.recorderMode ?? 'default';
+    this._captureDom = options?.captureDom ?? false;
     this.highlight = injectedScript.createHighlight();
     this._tools = {
       'none': new NoneTool(),
@@ -1764,6 +1902,10 @@ export class Recorder {
 
   setMode(mode: Mode) {
     void this._delegate.setMode?.(mode);
+  }
+
+  get captureDom(): boolean {
+    return this._captureDom;
   }
 
   private _captureAutoExpectSnapshot() {
