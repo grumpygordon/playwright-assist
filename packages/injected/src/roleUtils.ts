@@ -396,6 +396,31 @@ function queryInAriaOwned(element: Element, selector: string): Element[] {
   return result;
 }
 
+function isPUACodepoint(code: number): boolean {
+  // Private Use Area ranges in Unicode
+  return (code >= 0xE000 && code <= 0xF8FF) ||
+         (code >= 0xF0000 && code <= 0xFFFFD) ||
+         (code >= 0x100000 && code <= 0x10FFFD);
+}
+
+function getIconIdentifier(content: string, style: CSSStyleDeclaration): string | undefined {
+  // Check if content is a single PUA character (icon font glyph)
+  if (!content || content.length > 2) return undefined;
+
+  const code = content.codePointAt(0);
+  if (!code || !isPUACodepoint(code)) return undefined;
+
+  // Extract and sanitize font family name
+  const fontFamily = style.fontFamily
+    .replace(/["']/g, '')
+    .split(',')[0]
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-');
+
+  return `[icon:${fontFamily}:${code.toString(16)}]`;
+}
+
 export function getCSSContent(element: Element, pseudo?: '::before' | '::after') {
   // Relevant spec: 2.6.2 from https://w3c.github.io/accname/#computation-steps.
   // Additional considerations: https://github.com/w3c/accname/issues/204.
@@ -411,6 +436,13 @@ export function getCSSContent(element: Element, pseudo?: '::before' | '::after')
       if (style.display !== 'none' && style.visibility !== 'hidden') {
         // Note: all browsers ignore display:none and visibility:hidden pseudos.
         content = parseCSSContentPropertyAsString(element, contentValue, !!pseudo);
+
+        // Replace PUA icon font characters with readable identifiers
+        if (pseudo && content) {
+          const iconId = getIconIdentifier(content, style);
+          if (iconId)
+            content = iconId;
+        }
       }
     }
   }
