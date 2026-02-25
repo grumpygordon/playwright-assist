@@ -744,11 +744,7 @@ export function validateBrowserContextOptions(options: types.BrowserContextOptio
     throw new Error(`"deviceScaleFactor" option is not supported with null "viewport"`);
   if (options.noDefaultViewport && !!options.isMobile)
     throw new Error(`"isMobile" option is not supported with null "viewport"`);
-  // IFRAME-PIERCE: Default to true for iframe piercing and force actions
-  if (options.forceActions === undefined)
-    options.forceActions = true;
-  if (options.pierceIframes === undefined)
-    options.pierceIframes = true;
+  // IFRAME-PIERCE: forceActions and pierceIframes disabled by default, enable via setForceActions/setPierceIframes
   if (options.acceptDownloads === undefined && browserOptions.name !== 'electron')
     options.acceptDownloads = 'accept';
   // Electron requires explicit acceptDownloads: true since we wait for

@@ -1607,6 +1607,8 @@ export interface BrowserContextChannel extends BrowserContextEventTarget, EventT
   addInitScript(params: BrowserContextAddInitScriptParams, progress?: Progress): Promise<BrowserContextAddInitScriptResult>;
   clearCookies(params: BrowserContextClearCookiesParams, progress?: Progress): Promise<BrowserContextClearCookiesResult>;
   clearPermissions(params?: BrowserContextClearPermissionsParams, progress?: Progress): Promise<BrowserContextClearPermissionsResult>;
+  setForceActions(params: BrowserContextSetForceActionsParams, progress?: Progress): Promise<BrowserContextSetForceActionsResult>;
+  setPierceIframes(params: BrowserContextSetPierceIframesParams, progress?: Progress): Promise<BrowserContextSetPierceIframesResult>;
   close(params: BrowserContextCloseParams, progress?: Progress): Promise<BrowserContextCloseResult>;
   cookies(params: BrowserContextCookiesParams, progress?: Progress): Promise<BrowserContextCookiesResult>;
   exposeBinding(params: BrowserContextExposeBindingParams, progress?: Progress): Promise<BrowserContextExposeBindingResult>;
@@ -1741,6 +1743,20 @@ export type BrowserContextClearCookiesResult = void;
 export type BrowserContextClearPermissionsParams = {};
 export type BrowserContextClearPermissionsOptions = {};
 export type BrowserContextClearPermissionsResult = void;
+export type BrowserContextSetForceActionsParams = {
+  forceActions: boolean,
+};
+export type BrowserContextSetForceActionsOptions = {
+
+};
+export type BrowserContextSetForceActionsResult = void;
+export type BrowserContextSetPierceIframesParams = {
+  pierceIframes: boolean,
+};
+export type BrowserContextSetPierceIframesOptions = {
+
+};
+export type BrowserContextSetPierceIframesResult = void;
 export type BrowserContextCloseParams = {
   reason?: string,
 };

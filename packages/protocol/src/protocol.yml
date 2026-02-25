@@ -1201,6 +1201,18 @@ BrowserContext:
       title: Clear permissions
       group: configuration
 
+    setForceActions:
+      title: Set force actions
+      group: configuration
+      parameters:
+        forceActions: boolean
+
+    setPierceIframes:
+      title: Set pierce iframes
+      group: configuration
+      parameters:
+        pierceIframes: boolean
+
     close:
       title: Close context
       parameters:

@@ -332,6 +332,14 @@ export class BrowserContext extends ChannelOwner<channels.BrowserContextChannel>
     await this._channel.clearPermissions();
   }
 
+  async setForceActions(forceActions: boolean): Promise<void> {
+    await this._channel.setForceActions({ forceActions });
+  }
+
+  async setPierceIframes(pierceIframes: boolean): Promise<void> {
+    await this._channel.setPierceIframes({ pierceIframes });
+  }
+
   async setGeolocation(geolocation: { longitude: number, latitude: number, accuracy?: number } | null): Promise<void> {
     await this._channel.setGeolocation({ geolocation: geolocation || undefined });
   }

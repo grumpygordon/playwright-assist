@@ -71,6 +71,8 @@ export const methodMetainfo = new Map<string, { internal?: boolean, title?: stri
   ['BrowserContext.addInitScript', { title: 'Add init script', group: 'configuration', }],
   ['BrowserContext.clearCookies', { title: 'Clear cookies', group: 'configuration', }],
   ['BrowserContext.clearPermissions', { title: 'Clear permissions', group: 'configuration', }],
+  ['BrowserContext.setForceActions', { title: 'Set force actions', group: 'configuration', }],
+  ['BrowserContext.setPierceIframes', { title: 'Set pierce iframes', group: 'configuration', }],
   ['BrowserContext.close', { title: 'Close context', pausesBeforeAction: true, }],
   ['BrowserContext.cookies', { title: 'Get cookies', group: 'getter', }],
   ['BrowserContext.exposeBinding', { title: 'Expose binding', group: 'configuration', }],

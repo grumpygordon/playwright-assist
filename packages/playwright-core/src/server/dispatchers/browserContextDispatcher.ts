@@ -276,6 +276,14 @@ export class BrowserContextDispatcher extends Dispatcher<BrowserContext, channel
     await this._context.clearPermissions();
   }
 
+  async setForceActions(params: channels.BrowserContextSetForceActionsParams, progress: Progress): Promise<void> {
+    this._context.setForceActions(params.forceActions);
+  }
+
+  async setPierceIframes(params: channels.BrowserContextSetPierceIframesParams, progress: Progress): Promise<void> {
+    this._context.setPierceIframes(params.pierceIframes);
+  }
+
   async setGeolocation(params: channels.BrowserContextSetGeolocationParams, progress: Progress): Promise<void> {
     // Note: progress is ignored because this operation is not cancellable and should not block in the browser anyway.
     await this._context.setGeolocation(params.geolocation);

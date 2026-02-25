@@ -988,6 +988,14 @@ scheme.BrowserContextClearCookiesParams = tObject({
 scheme.BrowserContextClearCookiesResult = tOptional(tObject({}));
 scheme.BrowserContextClearPermissionsParams = tOptional(tObject({}));
 scheme.BrowserContextClearPermissionsResult = tOptional(tObject({}));
+scheme.BrowserContextSetForceActionsParams = tObject({
+  forceActions: tBoolean,
+});
+scheme.BrowserContextSetForceActionsResult = tOptional(tObject({}));
+scheme.BrowserContextSetPierceIframesParams = tObject({
+  pierceIframes: tBoolean,
+});
+scheme.BrowserContextSetPierceIframesResult = tOptional(tObject({}));
 scheme.BrowserContextCloseParams = tObject({
   reason: tOptional(tString),
 });
