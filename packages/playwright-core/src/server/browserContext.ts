@@ -424,9 +424,10 @@ export abstract class BrowserContext<EM extends EventMap = EventMap> extends Sdk
     this._options.forceActions = forceActions;
   }
 
-  // IFRAME-PIERCE: Set pierceIframes to enable iframe-piercing selectors
+  // IFRAME-PIERCE: pierceIframes is hardcoded to true in injectedScript.ts
   setPierceIframes(pierceIframes: boolean) {
-    this._options.pierceIframes = pierceIframes;
+    if (!pierceIframes)
+      throw new Error('setPierceIframes(false) not supported: iframe piercing is hardcoded to true in injectedScript.ts');
   }
 
   async _loadDefaultContextAsIs(progress: Progress): Promise<Page | undefined> {

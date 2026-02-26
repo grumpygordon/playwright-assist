@@ -954,12 +954,10 @@ export class InjectedScript {
 
   expectHitTarget(hitPoint: { x: number, y: number }, targetElement: Element) {
     const roots: (Document | ShadowRoot)[] = [];
-    // IFRAME-PIERCE: disabled iframe chain tracking - using forceActions instead
-    // const iframeChain: HTMLIFrameElement[] = [];
+    const iframeChain: HTMLIFrameElement[] = [];
 
     // Get all component roots leading to the target element.
     // Go from the bottom to the top to make it work with closed shadow roots.
-    // IFRAME-PIERCE: disabled iframe chain tracking
     let parentElement = targetElement;
     while (parentElement) {
       const root = enclosingShadowRootOrDocument(parentElement);
@@ -967,14 +965,13 @@ export class InjectedScript {
         break;
       roots.push(root);
       if (root.nodeType === 9 /* Node.DOCUMENT_NODE */) {
-        // IFRAME-PIERCE: disabled - was tracking iframe chain
-        // const doc = root as Document;
-        // const win = doc.defaultView;
-        // if (win && win.frameElement && win.frameElement.tagName === 'IFRAME') {
-        //   iframeChain.push(win.frameElement as HTMLIFrameElement);
-        //   parentElement = win.frameElement as Element;
-        //   continue;
-        // }
+        const doc = root as Document;
+        const win = doc.defaultView;
+        if (win && win.frameElement && win.frameElement.tagName === 'IFRAME') {
+          iframeChain.push(win.frameElement as HTMLIFrameElement);
+          parentElement = win.frameElement as Element;
+          continue;
+        }
         break;
       }
       parentElement = (root as ShadowRoot).host;
@@ -1026,14 +1023,22 @@ export class InjectedScript {
     if (hitElement === targetElement)
       return 'done';
 
-    // IFRAME-PIERCE: disabled iframe-aware hit target check - using forceActions instead
-    // if (hitParents.length > 0 && iframeChain.length > 0) {
-    //   for (const hitParent of hitParents) {
-    //     if (iframeChain.includes(hitParent as HTMLIFrameElement)) {
-    //       return 'done';
-    //     }
-    //   }
-    // }
+    // If targetElement is in a different document (iframe-piercing selector case),
+    // we can't do proper hit testing from this frame. The iframe chain was already
+    // verified by _checkFrameIsHitTarget, so allow the click.
+    // This relies on the first-stage check having verified all iframes in the chain.
+    const inCorrectFrame = targetElement.ownerDocument === this.document;
+    if (!inCorrectFrame) {
+      return 'done';
+    }
+    
+    if (hitParents.length > 0 && iframeChain.length > 0) {
+      for (const hitParent of hitParents) {
+        if (iframeChain.includes(hitParent as HTMLIFrameElement)) {
+          return 'done';
+        }
+      }
+    }
 
     const hitTargetDescription = this.previewNode(hitParents[0] || this.document.documentElement);
     // Root is the topmost element in the hitTarget's chain that is not in the
